@@ -14,8 +14,8 @@ Built by Kar for AI Native Solutions. MIT.
 
 ## Proof
 
-- `node --test kernel.test.mjs` and `node --test checkcase.test.mjs`
-- The witness v0.6 mutation gate runs on `kernel.mjs` and on `checkcase.mjs` in CI, on every push. The local receipt is in `receipts/witness.json`: kernel 61/61 and cost case 16/16, both clean, nothing baselined.
+- `node --test kernel.test.mjs`, `node --test checkcase.test.mjs` and `node --test cli.test.mjs` (every exit code the command line promises)
+- The witness v0.6 mutation gate runs on `kernel.mjs`, `checkcase.mjs` and `cli.mjs` in CI, on every push. The local receipt is in `receipts/witness.json`: kernel 61/61, cost case 16/16 and command line 13/13, all clean, nothing baselined.
 
 ## v2 (2026-11-11)
 
