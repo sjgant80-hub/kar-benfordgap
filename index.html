@@ -15,7 +15,8 @@ main{max-width:920px;margin:0 auto;padding:24px 16px 64px}
 h1{font-size:1.9rem;margin:.2em 0 .1em}h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-top:.6em;border-top:1px solid var(--line)}h3{font-size:1.05rem;margin:1.4em 0 .3em}
 p,li{max-width:72ch}a{color:var(--accent)}
 .lede{font-size:1.1rem;color:var(--muted)}
-nav.toc{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.92rem;margin:14px 0}
+nav.toc{display:flex;flex-wrap:wrap;gap:4px 6px;font-size:.92rem;margin:14px 0}
+nav.toc a{display:inline-flex;align-items:center;min-height:32px;padding:0 8px;border-radius:6px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin:14px 0}
 textarea{width:100%;min-height:150px;font:13px/1.4 ui-monospace,Consolas,monospace;background:var(--code);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px}
 input,select{font:inherit;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
@@ -59,9 +60,10 @@ dl dt{font-weight:650;margin-top:.7em}dl dd{margin:.1em 0 0 0;color:var(--muted)
 </div>
 <div class="row" style="margin-top:8px">
 <label class="small" for="col">Column</label><select id="col"><option value="">(one amount per line)</option></select>
-<label class="small" for="minn">Fewest amounts to judge</label><input type="number" id="minn" value="100" min="1" step="1">
+<label class="small" for="minn">Fewest amounts to judge</label><input type="number" id="minn" value="100" min="1" step="1" aria-describedby="minn-hint">
 <button type="button" id="run">Screen it</button>
 </div>
+<p class="small muted" id="minn-hint" style="margin:6px 0 0">With fewer usable amounts than this (100 unless you change it) there is no verdict. From there up to 999 amounts the verdict comes from the chi-square test; from 1,000 up, from Nigrini's MAD bands.</p>
 <div id="out" aria-live="polite" style="margin-top:12px"></div>
 </section>
 
@@ -108,7 +110,7 @@ dl dt{font-weight:650;margin-top:.7em}dl dd{margin:.1em 0 0 0;color:var(--muted)
 <li><b>It is a screen, not proof.</b> A nonconforming column tells you where to look. It does not say anyone did anything wrong. A conforming column is not a clean bill of health either: a fraud that copies the normal pattern passes.</li>
 <li><b>Some data never follows the law</b>, and the tool cannot know that for you. Examples: assigned numbers (invoice numbers, phone numbers), prices set at fixed points (£9.99), amounts with a built-in cap or floor, a single fee charged many times. Use it on amounts that arise naturally.</li>
 <li><b>It needs enough data.</b> Below the "fewest amounts to judge" setting (100 by default) it gives no verdict. From 100 to 999 amounts the verdict comes from chi-square, which can only see large gaps at that size: a small pile-up can pass. From 1,000 up it uses Nigrini's MAD bands. If you lower the setting under 100, the result says the verdict is weak.</li>
-<li><b>It needs spread.</b> If the amounts span less than two orders of magnitude (say, all between £100 and £9,999), the result comes with a warning that the test is weak.</li>
+<li><b>It needs spread.</b> If the amounts span less than two orders of magnitude (say, all between £100 and £9,999), the verdict is still given, with a note underneath that it is weak. Benford's Law describes amounts that range over several powers of ten; a narrow band of similar amounts can't show the pattern.</li>
 <li><b>First digits only.</b> Nigrini's fuller method adds first-two-digit and last-two-digit tests, which this version does not run.</li>
 <li><b>Number formats.</b> Commas are read only as thousands separators (<code>1,234.56</code>). European formats like <code>1.234,56</code> are refused and counted as unreadable, never guessed.</li>
 </ul>
@@ -240,7 +242,7 @@ dl dt{font-weight:650;margin-top:.7em}dl dd{margin:.1em 0 0 0;color:var(--muted)
 <section id="faq" aria-labelledby="faq-h">
 <h2 id="faq-h">FAQ</h2>
 <dl>
-<dt>What happens with a huge file?</dt><dd>It runs in your browser's memory. Hundreds of thousands of rows are fine on a normal laptop; for millions, use the command line.</dd>
+<dt>What happens with a huge file?</dt><dd>It runs in your browser's memory. Every result says how long the screen took on your machine, so you can see the cost for yourself; the honest-data measurement in "How it works" screened <span id="honest-total">over a million amounts</span> as this page loaded. For files too big to paste, use the command line.</dd>
 <dt>What happens with bad rows?</dt><dd>They are counted, never guessed. The result says how many rows were unreadable and how many were zero, and leaves them out.</dd>
 <dt>Do negative amounts count?</dt><dd>Yes, by their size: a refund of (85.50) counts as first digit 8. Screen refunds as their own column if you want to look at them apart.</dd>
 <dt>Does it work offline?</dt><dd>Once the page has loaded, the screen needs no connection. For a permanent offline copy, download the repo and open <code>index.html</code> from a local web server, or use the command line.</dd>
@@ -317,7 +319,7 @@ function table(a) {
   for (const d of a.digits) s += `<tr><td>${d.digit}</td><td>${d.count}</td><td>${pct(d.share)}</td><td>${pct(d.expected)}</td><td>${d.z.toFixed(2)}</td><td>${d.high ? '<span class="flag">too common</span>' : d.low ? 'too rare' : ''}</td></tr>`;
   return s + '</tbody></table></div>';
 }
-async function render(a, values) {
+async function render(a, values, ms) {
   if (!a.ok) { $('out').innerHTML = `<p class="flag">${esc(a.why)}</p>` + (a.skipped ? `<p class="small">Rows read: ${a.rows}; unreadable ${a.skipped.unreadable}, zero ${a.skipped.zero}.</p>` : ''); return; }
   const fpIn = await sha256(values.join('\n'));
   const fpOut = await sha256(JSON.stringify({ v: a.version, n: a.n, counts: a.counts, skipped: a.skipped, verdict: a.verdict, minN: a.minN }));
@@ -327,13 +329,14 @@ async function render(a, values) {
     ${a.lookFirst.length ? `<b>Look here first:</b> amounts starting with ${a.lookFirst.join(', ')}.` : a.verdict === 'too-few' ? '' : 'No single first digit stands out.'}</p>
     ${a.notes.length ? '<ul class="small">' + a.notes.map((n) => `<li>${esc(n)}</li>`).join('') + '</ul>' : ''}
     ${chart(a)}${table(a)}
-    <p class="small muted">Fingerprints (SHA-256), version ${esc(a.version)}: input <span class="fp">${fpIn}</span><br>result <span class="fp">${fpOut}</span></p>`;
+    <p class="small muted">Screened in ${ms < 1 ? 'under 1' : Math.round(ms).toLocaleString('en-GB')} ms on this machine. Fingerprints (SHA-256), version ${esc(a.version)}: input <span class="fp">${fpIn}</span><br>result <span class="fp">${fpOut}</span></p>`;
 }
 function run() {
   const v = valuesFromInput();
   if (!v.ok) { $('out').innerHTML = `<p class="flag">${esc(v.why)}</p>`; return; }
   const minN = Number($('minn').value);
-  render(audit(v.values, { minN }), v.values);
+  const t0 = performance.now(), a = audit(v.values, { minN });
+  render(a, v.values, performance.now() - t0);
 }
 for (const id of Object.keys(EXAMPLES)) $(id).addEventListener('click', () => { const [f, col] = EXAMPLES[id]; $('input').value = f(); refreshColumns(col); run(); });
 $('run').addEventListener('click', run);
@@ -353,14 +356,30 @@ $('file').addEventListener('change', async (e) => { const f = e.target.files[0];
   <p class="muted">The example is synthetic, made on this page by a fixed seed: five in six claims spread naturally from £10 to £50,000, one in six pushed just under £5,000. It is not anyone's real ledger.</p>`;
 }
 
-// how often each test flags honest data: the kernel's own measurement, run now (after first paint)
-setTimeout(() => {
-  const SIZES = [100, 300, 1000, 3000], TRIALS = 250, SEED = 1;
-  const rows = SIZES.map((n) => honestRates(n, TRIALS, SEED));
+// how often each test flags honest data: the kernel's own measurement, run in a worker so the page never freezes.
+// The worker imports the same kernel.mjs the page and the tests use; if workers are unavailable it runs here.
+const SIZES = [100, 300, 1000, 3000], TRIALS = 250, SEED = 1;
+function measureHonest() {
+  return new Promise((resolve) => {
+    try {
+      const src = `import { honestRates } from ${JSON.stringify(new URL('kernel.mjs', import.meta.url).href)};
+onmessage = (e) => { const t0 = performance.now(); const rows = e.data.sizes.map((n) => honestRates(n, e.data.trials, e.data.seed)); postMessage({ rows, ms: performance.now() - t0 }); };`;
+      const w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })), { type: 'module' });
+      w.onmessage = (e) => { resolve(e.data); w.terminate(); };
+      w.onerror = () => { w.terminate(); resolve(null); };
+      w.postMessage({ sizes: SIZES, trials: TRIALS, seed: SEED });
+    } catch { resolve(null); }
+  }).then((r) => r || (() => { const t0 = performance.now(); return { rows: SIZES.map((n) => honestRates(n, TRIALS, SEED)), ms: performance.now() - t0 }; })());
+}
+measureHonest().then(({ rows, ms }) => {
+  const total = TRIALS * SIZES.reduce((x, y) => x + y, 0);
+  $('honest-total').textContent = `${total.toLocaleString('en-GB')} amounts in ${(ms / 1000).toFixed(1)} seconds`;
+  const r300 = rows[1];
   let h = '<table><thead><tr><th>Amounts in the column</th><th>MAD bands alone would flag</th><th>Chi-square (5%) would flag</th><th>This screen\'s verdict flags</th><th>Given a "look here first" digit</th></tr></thead><tbody>';
   for (const r of rows) h += `<tr><td>${r.n.toLocaleString('en-GB')}</td><td>${pct(r.mad)}</td><td>${pct(r.chi2)}</td><td><b>${pct(r.flagged)}</b></td><td>${pct(r.look)}</td></tr>`;
-  $('honest').innerHTML = h + `</tbody></table><p class="muted">${TRIALS} columns at each size, seed ${SEED}, kernel version ${esc(VERSION)}. "Flag" means marginal or nonconformity.</p>`;
-}, 0);
+  $('honest').innerHTML = h + `</tbody></table><p class="muted">${TRIALS} columns at each size, seed ${SEED}, kernel version ${esc(VERSION)}. "Flag" means marginal or nonconformity.</p>
+  <p><b>What this means for your team:</b> on an honest column of ${r300.n} amounts, Nigrini's bands alone would send someone to investigate ${Math.round(r300.mad * 100)} times in 100. This screen does it about ${Math.round(r300.flagged * 100)} times in 100, close to the 5 in 100 that any test at the 5% level allows by design. Each false alarm costs a few minutes of filtering, not an accusation.</p>`;
+});
 
 // the gate, read from the receipt
 fetch('receipts/witness.json').then((r) => r.json()).then((w) => {
