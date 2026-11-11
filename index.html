@@ -92,10 +92,14 @@ dl dt{font-weight:650;margin-top:.7em}dl dd{margin:.1em 0 0 0;color:var(--muted)
 <div id="trace" class="card small">Running…</div>
 <h3>The three tests, in plain words</h3>
 <ul>
-<li><b>MAD (mean absolute deviation)</b>: the average gap between the share you have for each digit and the share the law expects. Mark Nigrini, who brought Benford's Law into auditing, gives bands for first digits: up to 0.006 close, up to 0.012 acceptable, up to 0.015 marginal, above that nonconformity. The verdict uses these bands, because MAD does not grow just because the file is big.</li>
-<li><b>Chi-square</b>: one number for how far all nine counts are from the expected counts. Above 15.507 the gap would happen by chance less than 5% of the time; above 20.09, less than 1%. On large files it flags small, harmless gaps, so it is shown as supporting evidence, not the verdict.</li>
-<li><b>z per digit</b>: whether one digit on its own is too common or too rare. Above 1.96 is unusual (5% level). Digits that are too common are listed as "look here first", biggest first.</li>
+<li><b>MAD (mean absolute deviation)</b>: the average gap between the share you have for each digit and the share the law expects. Mark Nigrini, who brought Benford's Law into auditing, gives bands for first digits: up to 0.006 close, up to 0.012 acceptable, up to 0.015 marginal, above that nonconformity. MAD does not grow just because the file is big, so from 1,000 amounts up the verdict uses these bands. Below 1,000 they flag most honest files (see the measurement below), so they are shown but do not decide.</li>
+<li><b>Chi-square</b>: one number for how far all nine counts are from the expected counts. Above 15.507 the gap would happen by chance less than 5% of the time; above 20.09, less than 1%. It keeps its promise at small sizes: about 5 honest columns in 100 pass the 5% line, whatever the size. So under 1,000 amounts the verdict comes from chi-square: past the 1% line nonconformity, past the 5% line marginal, otherwise acceptable. On large files it flags small, harmless gaps, so from 1,000 up it is shown as supporting evidence, not the verdict.</li>
+<li><b>z per digit</b>: whether one digit on its own is too common or too rare. Above 1.96 is unusual for one digit (5% level), and the table marks it. Testing nine digits at once at that line would name a digit in about one honest column in five (1 − 0.975<sup>9</sup> ≈ 20%), so a digit is named to "look here first" only above 2.773: the same 5% shared over the nine digits (the Bonferroni correction). Biggest first.</li>
 </ul>
+<h3>How often it flags honest data, measured as this page loaded</h3>
+<p>The kernel draws columns that follow Benford's Law exactly (from a fixed seed, so anyone gets the same numbers) and screens each one. A good screen should flag about 5 in 100 of these. The table shows how often each test would have flagged them.</p>
+<div id="honest" class="tbl small">Measuring…</div>
+<p class="small muted">Real ledgers fit the law less exactly than these columns, so expect somewhat more flags on real honest data, not fewer. The function is <code>honestRates</code> in kernel.mjs; its exact results are pinned in the tests.</p>
 </section>
 
 <section id="limits" aria-labelledby="limits-h">
@@ -103,7 +107,7 @@ dl dt{font-weight:650;margin-top:.7em}dl dd{margin:.1em 0 0 0;color:var(--muted)
 <ul>
 <li><b>It is a screen, not proof.</b> A nonconforming column tells you where to look. It does not say anyone did anything wrong. A conforming column is not a clean bill of health either: a fraud that copies the normal pattern passes.</li>
 <li><b>Some data never follows the law</b>, and the tool cannot know that for you. Examples: assigned numbers (invoice numbers, phone numbers), prices set at fixed points (£9.99), amounts with a built-in cap or floor, a single fee charged many times. Use it on amounts that arise naturally.</li>
-<li><b>It needs enough data.</b> Below the "fewest amounts to judge" setting (100 by default) it gives no verdict. Under a few hundred amounts, even honest data wobbles. Nigrini recommends larger samples still for firm conclusions.</li>
+<li><b>It needs enough data.</b> Below the "fewest amounts to judge" setting (100 by default) it gives no verdict. From 100 to 999 amounts the verdict comes from chi-square, which can only see large gaps at that size: a small pile-up can pass. From 1,000 up it uses Nigrini's MAD bands. If you lower the setting under 100, the result says the verdict is weak.</li>
 <li><b>It needs spread.</b> If the amounts span less than two orders of magnitude (say, all between £100 and £9,999), the result comes with a warning that the test is weak.</li>
 <li><b>First digits only.</b> Nigrini's fuller method adds first-two-digit and last-two-digit tests, which this version does not run.</li>
 <li><b>Number formats.</b> Commas are read only as thousands separators (<code>1,234.56</code>). European formats like <code>1.234,56</code> are refused and counted as unreadable, never guessed.</li>
@@ -119,15 +123,23 @@ dl dt{font-weight:650;margin-top:.7em}dl dd{margin:.1em 0 0 0;color:var(--muted)
 <tr><td>csvColumn</td><td>Reads one column of a CSV: quoted cells, commas inside quotes, any line ending, blank lines dropped.</td><td>kernel.mjs</td></tr>
 <tr><td>parseAmount</td><td>Turns a ledger cell into a number: £/$/€/¥, thousands commas, accountants' brackets for negatives. Refuses anything ambiguous.</td><td>kernel.mjs</td></tr>
 <tr><td>leadingDigit</td><td>The first significant digit, read from the number's own decimal form.</td><td>kernel.mjs</td></tr>
-<tr><td>audit</td><td>Counts, MAD with Nigrini's band, chi-square, z per digit, spread, skipped rows, one verdict.</td><td>kernel.mjs</td></tr>
+<tr><td>audit</td><td>Counts, MAD with Nigrini's band, chi-square, z per digit, spread, skipped rows, and one verdict: from chi-square under 1,000 amounts, from the MAD bands from 1,000 up. It says which.</td><td>kernel.mjs</td></tr>
+<tr><td>honestRates</td><td>Screens columns that follow the law exactly, from a fixed seed, and reports how often each test flags them. The measurement table above comes from it.</td><td>kernel.mjs</td></tr>
+<tr><td>cli</td><td>The same screen from the command line, with an exit code a scheduled job can act on: 0 not flagged, 2 flagged, 1 bad input.</td><td>cli.mjs</td></tr>
 <tr><td>checkCase</td><td>The cost case below, from the UK median wage and inflation (ONS).</td><td>checkcase.mjs</td></tr>
 </tbody></table></div>
 <h3>How it is proved</h3>
 <ul>
-<li><b>Tests</b>: <code>node --test kernel.test.mjs</code> pins exact counts, MAD, chi-square and z values on fixed inputs, every parsing rule, each line exactly on its edge, and that no kind of input throws an error.</li>
+<li><b>Tests</b>: <code>node --test kernel.test.mjs</code> pins exact counts, MAD, chi-square and z values on fixed inputs, every parsing rule, each line exactly on its edge, the honest-data measurement, and that no kind of input throws an error. <code>node --test cli.test.mjs</code> pins every exit code the command line promises.</li>
 <li><b>Mutation gate</b>: <a href="https://github.com/sjgant80-hub/witness">witness</a> changes the kernel one small step at a time and re-runs the tests; every change must be caught. From <a href="receipts/witness.json">receipts/witness.json</a>: <span id="gate">reading the receipt…</span></li>
-<li><b>CI</b>: GitHub re-runs the tests and both gates on every change; the runs are public on the repo's Actions tab.</li>
+<li><b>CI</b>: GitHub re-runs the tests and all three gates on every change; the runs are public on the repo's <a href="https://github.com/sjgant80-hub/kar-benfordgap/actions">Actions tab</a>.</li>
 </ul>
+<h3>What version 2.1 fixed</h3>
+<p>Version 2 passed its gate, and the same method found two more faults: running honest columns through it at each size.</p>
+<ol>
+<li>It took the verdict from Nigrini's MAD bands at every size. On honest columns of 100 amounts, those bands flag almost all of them (the table above shows the measured share). Version 2.1 uses chi-square under 1,000 amounts, where it keeps its 5% promise, and the MAD bands from 1,000 up.</li>
+<li>It named a digit to look at first whenever one digit passed z 1.96. With nine digits tested at once, that happens by chance in about one honest column in five (nine chances at 2.5% on the too-common side: 1 − 0.975<sup>9</sup> ≈ 20%). Version 2.1 uses the nine-digit line, 2.773.</li>
+</ol>
 <h3>What version 2 fixed</h3>
 <p>Version 1 passed its own gate and still had three faults. Each was found by running a whole class of inputs, not by reading the code:</p>
 <ol>
@@ -193,9 +205,9 @@ dl dt{font-weight:650;margin-top:.7em}dl dd{margin:.1em 0 0 0;color:var(--muted)
 <section id="risks" aria-labelledby="risk-h">
 <h2 id="risk-h">Risks, answered straight</h2>
 <dl>
-<dt>What if it flags honest data?</dt><dd>It will sometimes: some honest data doesn't follow the law (see "What it can't tell you"). That is why it names digits to look at rather than people to accuse. The cost of a false flag is a few minutes of filtering.</dd>
+<dt>What if it flags honest data?</dt><dd>It will sometimes. On columns that follow the law exactly it flags about 5 in 100, measured live in "How it works". Real honest data that doesn't follow the law is flagged more often (see "What it can't tell you"). That is why it names digits to look at rather than people to accuse. The cost of a false flag is a few minutes of filtering.</dd>
 <dt>What if it misses fraud?</dt><dd>It can. A fraud that mimics the normal distribution, or a single large payment, won't show. Treat it as one control among several, not the only one.</dd>
-<dt>Can I trust the code?</dt><dd>Read it: the kernel is about 200 lines. Every line is covered by tests that a mutation gate checks. Version 1 passed its gate and still had faults, which is why version 2 was attacked with whole classes of input before release. That attack is now part of the tests.</dd>
+<dt>Can I trust the code?</dt><dd>Read it: the kernel is under 300 lines, with the reason for each rule written next to it. Every line is covered by tests that a mutation gate checks. Version 1 passed its gate and still had faults, and so did version 2. Each was found by attacking it with a whole class of input, and each attack is now part of the tests.</dd>
 <dt>Who is accountable for a decision made on it?</dt><dd>Your team. The tool screens; people decide.</dd>
 </dl>
 </section>
@@ -204,7 +216,7 @@ dl dt{font-weight:650;margin-top:.7em}dl dd{margin:.1em 0 0 0;color:var(--muted)
 <h2 id="paper-h">The explainer</h2>
 <p><b>Why first digits are uneven.</b> Take an amount that grows steadily, like a balance earning interest. It spends a long time with first digit 1 (from 100 to 199 it must double), and much less with first digit 9 (from 900 to 999 is only an 11% rise). When many amounts arise from growth, multiplication and mixing over several orders of magnitude, their first digits settle into the share log<sub>10</sub>(1 + 1/<i>d</i>): 30.1% ones, 17.6% twos, down to 4.6% nines. Simon Newcomb noticed it in 1881 from the worn pages of logarithm tables. Frank Benford tested it on over 20,000 numbers in 1938.</p>
 <p><b>Why fraud shows.</b> People inventing amounts tend to spread digits evenly and avoid repeating themselves. People working around a control push amounts just under it: claims of £4,950 to stay under a £5,000 approval, so digit 4 is over-represented. Both leave a mark in the first-digit counts that a simple, repeatable test can see.</p>
-<p><b>Why these thresholds.</b> Chi-square is the textbook test, but with thousands of rows it flags gaps too small to matter. Nigrini's MAD bands were set from real accounting data to separate "close enough" from "worth a look" whatever the file size. The verdict uses MAD. Chi-square and the per-digit z are shown so you can see the evidence.</p>
+<p><b>Why these thresholds.</b> Chi-square is the textbook test, but with thousands of rows it flags gaps too small to matter. Nigrini's MAD bands were set from real accounting data to separate "close enough" from "worth a look" on large files, and they do not grow with file size. But on small files honest data drifts further from the law by chance, and the fixed bands flag it. So each test is used where it holds: chi-square under 1,000 amounts, MAD from 1,000 up. Both, and the per-digit z, are always shown so you can see the evidence.</p>
 <p><b>Why a fingerprint.</b> A screen is only as good as the data it was run on. The SHA-256 fingerprint of the input column and the result lets anyone confirm, later, that the screen in a working paper was run on the column it claims.</p>
 </section>
 
@@ -235,16 +247,18 @@ dl dt{font-weight:650;margin-top:.7em}dl dd{margin:.1em 0 0 0;color:var(--muted)
 <dt>Command line?</dt><dd>With <a href="https://nodejs.org">Node.js</a> installed: <code>node cli.mjs payments.csv amount</code> prints the same result as JSON. See the README.</dd>
 </dl>
 </section>
-<p class="small muted" style="margin-top:3em">BenfordGap v2 · built by Kar for AI Native Solutions · MIT · <a href="https://github.com/sjgant80-hub/kar-benfordgap">github.com/sjgant80-hub/kar-benfordgap</a></p>
+<p class="small muted" style="margin-top:3em">BenfordGap <span id="ver">v2.1</span> · built by Kar for AI Native Solutions · MIT · <a href="https://github.com/sjgant80-hub/kar-benfordgap">github.com/sjgant80-hub/kar-benfordgap</a></p>
 </main>
 
 <script type="module">
-import { audit, csvColumn, EXPECTED, VERSION } from './kernel.mjs';
+import { audit, csvColumn, honestRates, EXPECTED, VERSION, MAD_FROM_N } from './kernel.mjs';
 import { checkCase, sourcesOf } from './checkcase.mjs';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pct = (x) => (x * 100).toFixed(1) + '%';
+const BY = { MAD: "Nigrini's MAD bands", 'chi-square': 'the chi-square test' };
+const byLine = (a) => a.verdictBy === 'none' ? '' : `Verdict from ${BY[a.verdictBy]} (${a.n < MAD_FROM_N ? 'under' : 'at least'} ${MAD_FROM_N.toLocaleString('en-GB')} amounts).`;
 const SAY = { close: 'Close conformity', acceptable: 'Acceptable conformity', marginal: 'Marginally acceptable', nonconformity: 'Nonconformity: worth a look', 'too-few': 'Too few amounts to judge' };
 
 // examples, generated on the page by a fixed seed: no real ledger is shown here
@@ -291,9 +305,9 @@ function chart(a) {
   for (const t of [0, 0.1, 0.2, 0.3]) if (t <= top) s += `<line x1="${L}" x2="${W - 10}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="${L - 4}" y="${y(t) + 4}" text-anchor="end">${t * 100}%</text>`;
   a.digits.forEach((d, i) => {
     const x = L + i * bw;
-    s += `<rect x="${x + bw * 0.15}" y="${y(d.share)}" width="${bw * 0.7}" height="${H - B - y(d.share)}" fill="var(--bar)" opacity="${d.high ? 1 : 0.7}"><title>digit ${d.digit}: ${pct(d.share)} (expected ${pct(d.expected)})</title></rect>`;
+    s += `<rect x="${x + bw * 0.15}" y="${y(d.share)}" width="${bw * 0.7}" height="${H - B - y(d.share)}" fill="var(--bar)" opacity="${a.lookFirst.includes(d.digit) ? 1 : 0.7}"><title>digit ${d.digit}: ${pct(d.share)} (expected ${pct(d.expected)})</title></rect>`;
     s += `<line x1="${x + bw * 0.05}" x2="${x + bw * 0.95}" y1="${y(d.expected)}" y2="${y(d.expected)}" stroke="var(--exp)" stroke-width="3"/>`;
-    s += `<text x="${x + bw / 2}" y="${H - B + 16}" text-anchor="middle">${d.digit}${d.high ? ' ▲' : ''}</text>`;
+    s += `<text x="${x + bw / 2}" y="${H - B + 16}" text-anchor="middle">${d.digit}${a.lookFirst.includes(d.digit) ? ' ▲' : ''}</text>`;
   });
   s += `<text x="${L}" y="${H - 2}">bars: your share · orange line: Benford's expected share · ▲ look here first</text></svg>`;
   return s;
@@ -309,7 +323,7 @@ async function render(a, values) {
   const fpOut = await sha256(JSON.stringify({ v: a.version, n: a.n, counts: a.counts, skipped: a.skipped, verdict: a.verdict, minN: a.minN }));
   $('out').innerHTML = `
     <p class="verdict v-${a.verdict}">${SAY[a.verdict]}</p>
-    <p>${a.n} amounts screened from ${a.rows} rows. MAD ${a.mad.toFixed(4)} (${esc(a.madSay)}); chi-square ${a.chi2.toFixed(2)} (${esc(a.chi2Band)}).
+    <p>${a.n} amounts screened from ${a.rows} rows. ${a.verdictBy === 'none' ? '' : `Verdict from ${BY[a.verdictBy]}.`} Chi-square ${a.chi2.toFixed(2)} (${esc(a.chi2Band)}); MAD ${a.mad.toFixed(4)} (Nigrini's band: ${esc(a.madSay)}).
     ${a.lookFirst.length ? `<b>Look here first:</b> amounts starting with ${a.lookFirst.join(', ')}.` : a.verdict === 'too-few' ? '' : 'No single first digit stands out.'}</p>
     ${a.notes.length ? '<ul class="small">' + a.notes.map((n) => `<li>${esc(n)}</li>`).join('') + '</ul>' : ''}
     ${chart(a)}${table(a)}
@@ -335,14 +349,25 @@ $('file').addEventListener('change', async (e) => { const f = e.target.files[0];
   <li><b>Read each amount</b>: <code>${esc(values[5])}</code> becomes ${Number(values[5].replace(/[£,]/g, ''))}. Unreadable rows: ${a.skipped.unreadable}; zeros: ${a.skipped.zero}.</li>
   <li><b>First digits</b> counted for 1 to 9: ${a.counts.join(', ')}.</li>
   <li><b>Compare</b>: digit 4 is ${pct(d4.share)} of the claims against ${pct(d4.expected)} expected, z = ${d4.z.toFixed(2)}. MAD ${a.mad.toFixed(4)}; chi-square ${a.chi2.toFixed(1)} (${esc(a.chi2Band)}).</li>
-  <li><b>Verdict</b>: ${SAY[a.verdict]}. Look here first: ${a.lookFirst.join(', ') || 'none'}. Amounts span ${a.span.toFixed(1)} orders of magnitude.</li></ol>
+  <li><b>Verdict</b>: ${SAY[a.verdict]}. ${byLine(a)} Look here first: ${a.lookFirst.join(', ') || 'none'}. Amounts span ${a.span.toFixed(1)} orders of magnitude.</li></ol>
   <p class="muted">The example is synthetic, made on this page by a fixed seed: five in six claims spread naturally from £10 to £50,000, one in six pushed just under £5,000. It is not anyone's real ledger.</p>`;
 }
+
+// how often each test flags honest data: the kernel's own measurement, run now (after first paint)
+setTimeout(() => {
+  const SIZES = [100, 300, 1000, 3000], TRIALS = 250, SEED = 1;
+  const rows = SIZES.map((n) => honestRates(n, TRIALS, SEED));
+  let h = '<table><thead><tr><th>Amounts in the column</th><th>MAD bands alone would flag</th><th>Chi-square (5%) would flag</th><th>This screen\'s verdict flags</th><th>Given a "look here first" digit</th></tr></thead><tbody>';
+  for (const r of rows) h += `<tr><td>${r.n.toLocaleString('en-GB')}</td><td>${pct(r.mad)}</td><td>${pct(r.chi2)}</td><td><b>${pct(r.flagged)}</b></td><td>${pct(r.look)}</td></tr>`;
+  $('honest').innerHTML = h + `</tbody></table><p class="muted">${TRIALS} columns at each size, seed ${SEED}, kernel version ${esc(VERSION)}. "Flag" means marginal or nonconformity.</p>`;
+}, 0);
 
 // the gate, read from the receipt
 fetch('receipts/witness.json').then((r) => r.json()).then((w) => {
   $('gate').textContent = w.gates.map((g) => `${g.file}: ${g.killed} of ${g.total} changes caught${g.clean ? ', clean' : ', NOT clean'}`).join(' · ') + ` (witness ${w.witness.tag}, ${w.at}).`;
 }).catch(() => { $('gate').textContent = 'the receipt could not be read here; see receipts/witness.json in the repo.'; });
+
+$('ver').textContent = 'v' + VERSION;
 
 // the cost case
 let BASIS = null;
@@ -356,7 +381,7 @@ function cost() {
   s += '<div class="tbl"><table><thead><tr><th>Year</th><th>Today</th><th>With BenfordGap</th><th>Saved</th></tr></thead><tbody>';
   for (const y of r.rows) s += `<tr><td>${y.year}</td><td>${gbp(y.today)}</td><td>${gbp(y.withTool)}</td><td>${gbp(y.saved)}</td></tr>`;
   s += `<tr><td><b>Total</b></td><td><b>${gbp(r.total.today)}</b></td><td><b>${gbp(r.total.withTool)}</b></td><td><b>${gbp(r.total.saved)}</b></td></tr></tbody></table></div>`;
-  s += '<p class="muted">Sources: ' + sourcesOf(BASIS).map((x) => `${esc(x.what)}: ${x.key === 'cpi' ? (x.value * 100).toFixed(1) + '% a year' : '£' + x.value + ' an hour'} (<a href="${esc(x.source)}">ONS</a>)`).join('; ') + '.</p>';
+  s += '<p class="muted">Sources: ' + sourcesOf(BASIS).map((x) => `${esc(x.key === 'cpi' ? x.what.split(' — ')[0] + ', applied each year to the staff cost and the tool cost' : x.what)}: ${x.key === 'cpi' ? (x.value * 100).toFixed(1) + '% a year' : '£' + x.value + ' an hour'} (<a href="${esc(x.source)}">ONS</a>)`).join('; ') + '.</p>';
   $('cost-out').innerHTML = s;
 }
 fetch('vendor/sovereign-enterprise/data/basis.json').then((r) => r.json()).then((b) => { BASIS = b; cost(); }).catch(() => { $('cost-out').textContent = 'The cost figures could not be loaded here.'; });

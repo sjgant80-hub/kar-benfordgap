@@ -27,7 +27,7 @@ jobs:
           test-command: node --test kernel.test.mjs
           cap: 100000
           node-version: 22
-          fuzz: kernel.mjs:audit kernel.mjs:parseAmount kernel.mjs:csvColumn kernel.mjs:leadingDigit
+          fuzz: kernel.mjs:audit kernel.mjs:parseAmount kernel.mjs:csvColumn kernel.mjs:leadingDigit kernel.mjs:honestRates
   witness-checkcase:
     runs-on: ubuntu-latest
     steps:

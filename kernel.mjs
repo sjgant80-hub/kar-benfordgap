@@ -9,8 +9,18 @@
 //  2. v1 flagged 3 numbers as "maximally divergent". v2 refuses to judge below a sample floor (minN, default 100).
 //  3. v1 dropped every row it could not read ("£1,234.56", "(250.00)") without saying so. v2 reads ledger amounts
 //     and counts every row it skips, with the reason.
+//
+// v2.1 fixes two faults in v2.0, found the same way: by running honest data (columns drawn to follow the law
+// exactly) through it at each size. honestRates() below re-runs that measurement; the page runs it live.
+//  4. v2.0 took the verdict from Nigrini's MAD bands at every size. Those bands only hold for large files: on
+//     honest data they flagged 97% of 100-amount columns and 63% of 300-amount ones, and fell under 5% only at
+//     about 1,000. Chi-square at its 5% line flags 4 to 5% of honest columns at every size. So under 1,000
+//     amounts the verdict now comes from chi-square, and from 1,000 up from the MAD bands.
+//  5. v2.0 named a digit to "look at first" whenever its z passed 1.96. With nine digits tested at once, about
+//     one honest column in five got one. The look-first line is now 2.773, the 5% line shared over nine digits
+//     (Bonferroni). The table's per-digit too-common and too-rare marks keep Nigrini's 1.96.
 
-export const VERSION = '2.0.0';
+export const VERSION = '2.1.0';
 
 /** Benford's expected share of first digit d, d = 1..9: log10(1 + 1/d). EXPECTED[0] is digit 1. */
 export const EXPECTED = Object.freeze(Array.from({ length: 9 }, (_, i) => Math.log10(1 + 1 / (i + 1))));
@@ -27,6 +37,12 @@ export const CHI2_8 = Object.freeze({ p05: 15.507, p01: 20.09 });
 
 /** z above this (two-sided 5%) marks a single digit as over- or under-represented. */
 export const Z_CRIT = 1.96;
+
+/** z above this names a digit to look at first: the two-sided 5% line shared over nine digits (Bonferroni), z(1 - 0.05/18). */
+export const Z_LOOK = 2.773;
+
+/** from this many amounts the verdict comes from Nigrini's MAD bands; below it, from chi-square (fault 4 above). */
+export const MAD_FROM_N = 1000;
 
 export const DEFAULT_MIN_N = 100;
 
@@ -45,6 +61,18 @@ export function chi2Band(chi2) {
 /** a digit's z flags it only when strictly past the line. */
 export function overLine(z) {
   return z > Z_CRIT;
+}
+
+/** a too-common digit is named to look at first only when its z is strictly past the nine-digit line. */
+export function lookLine(z) {
+  return z > Z_LOOK;
+}
+
+/** the verdict chi-square gives a column too small for the MAD bands: past the 1% line nonconformity, past 5% marginal. */
+export function chi2Verdict(chi2) {
+  if (chi2 > CHI2_8.p01) return 'nonconformity';
+  if (chi2 > CHI2_8.p05) return 'marginal';
+  return 'acceptable';
 }
 
 /** first significant digit of a finite nonzero number, from its shortest decimal form; null otherwise. */
@@ -104,7 +132,8 @@ export function benfordScore(numbers) {
  * the screen. values: an array of numbers or ledger strings. opts.minN: the fewest usable amounts it will judge.
  * Returns the counts, the shares, MAD with Nigrini's band, chi-square against the 5% and 1% critical values, a z
  * per digit, the digits to look at first, how many orders of magnitude the data spans, every skipped row by reason,
- * and one verdict: too-few · close · acceptable · marginal · nonconformity.
+ * and one verdict: too-few · close · acceptable · marginal · nonconformity. verdictBy says which test gave it:
+ * 'MAD' from MAD_FROM_N amounts up, 'chi-square' below that, 'none' when there are too few to judge.
  */
 export function audit(values, opts) {
   try {
@@ -145,11 +174,14 @@ export function audit(values, opts) {
     const span = Math.log10(hi / lo);
     const band = madBand(mad);
     const tooFew = n < minN;
-    const verdict = tooFew ? 'too-few' : band ? band.verdict : 'nonconformity';
-    const lookFirst = tooFew ? [] : digits.filter((d) => d.high).sort((a, b) => b.z - a.z).map((d) => d.digit);
+    const verdictBy = tooFew ? 'none' : n < MAD_FROM_N ? 'chi-square' : 'MAD';
+    const verdict = tooFew ? 'too-few' : verdictBy === 'MAD' ? (band ? band.verdict : 'nonconformity') : chi2Verdict(chi2);
+    const lookFirst = tooFew ? [] : digits.filter((d) => d.high && lookLine(d.z)).sort((a, b) => b.z - a.z).map((d) => d.digit);
 
     const notes = [];
     if (tooFew) notes.push(`only ${n} usable amounts; below ${minN} the first-digit pattern is mostly noise, so no verdict is given`);
+    else if (n < DEFAULT_MIN_N) notes.push(`the floor was lowered to ${minN}; with ${n} amount(s), treat the verdict as weak`);
+    if (verdictBy === 'chi-square') notes.push(`under ${MAD_FROM_N} amounts, so the verdict comes from the chi-square test: Nigrini's MAD bands flag most honest columns this small`);
     if (span < 2) notes.push(`the amounts span ${span.toFixed(2)} orders of magnitude; Benford's Law needs data spread over several (two or more), so treat any verdict as weak`);
     if (skipped.unreadable) notes.push(`${skipped.unreadable} row(s) could not be read as an amount and were left out`);
     if (skipped.zero) notes.push(`${skipped.zero} zero amount(s) left out (zero has no first digit)`);
@@ -157,11 +189,38 @@ export function audit(values, opts) {
     return {
       ok: true, version: VERSION, rows: values.length, n, minN, skipped, counts, shares, digits,
       mad, madSay: tooFew ? 'not judged' : band ? band.say : 'nonconformity',
-      chi2, chi2Band: chi2Band(chi2), score: gap / 2, span, verdict, lookFirst, notes,
+      chi2, chi2Band: chi2Band(chi2), score: gap / 2, span, verdict, verdictBy, lookFirst, notes,
     };
   } catch {
     return { ok: false, why: 'the list could not be read' };
   }
+}
+
+/**
+ * how often this screen flags honest data. Draws `trials` columns of n amounts that follow Benford's Law exactly
+ * (spread evenly on a log scale over four orders of magnitude, from a seeded generator, so the same seed always
+ * gives the same answer) and returns the share of them that Nigrini's MAD bands alone would flag (marginal or
+ * worse), that chi-square at 5% would flag, that get a digit to look at first, and that this screen's verdict flags.
+ */
+export function honestRates(n, trials, seed) {
+  if (!Number.isInteger(n) || n < 1 || n > 100000) return { ok: false, why: 'n must be a whole number from 1 to 100,000' };
+  if (!Number.isInteger(trials) || trials < 1 || trials > 10000) return { ok: false, why: 'trials must be a whole number from 1 to 10,000' };
+  if (!Number.isInteger(seed) || seed < 0 || seed > 4294967295) return { ok: false, why: 'seed must be a whole number from 0 to 4,294,967,295' };
+  let s = seed;
+  // a linear congruential generator in plain doubles: s stays under 2^32, so s * 1664525 stays exact
+  const next = () => (s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296;
+  let mad = 0, chi2 = 0, look = 0, flagged = 0;
+  for (let t = 0; t < trials; t++) {
+    const v = [];
+    for (let i = 0; i < n; i++) v.push(10 ** (1 + 4 * next()));
+    const r = audit(v, { minN: 1 });
+    const band = madBand(r.mad);
+    if (!band || band.verdict === 'marginal') mad += 1;
+    if (r.chi2Band !== 'p>=0.05') chi2 += 1;
+    if (r.lookFirst.length) look += 1;
+    if (r.verdict === 'marginal' || r.verdict === 'nonconformity') flagged += 1;
+  }
+  return { ok: true, n, trials, seed, mad: mad / trials, chi2: chi2 / trials, look: look / trials, flagged: flagged / trials };
 }
 
 /**
@@ -200,4 +259,4 @@ export function csvColumn(text, column) {
   }
 }
 
-export default { VERSION, EXPECTED, MAD_BANDS, CHI2_8, Z_CRIT, DEFAULT_MIN_N, leadingDigit, parseAmount, madBand, chi2Band, overLine, benfordScore, audit, csvColumn };
+export default { VERSION, EXPECTED, MAD_BANDS, CHI2_8, Z_CRIT, Z_LOOK, MAD_FROM_N, DEFAULT_MIN_N, leadingDigit, parseAmount, madBand, chi2Band, overLine, lookLine, chi2Verdict, benfordScore, audit, honestRates, csvColumn };

@@ -56,13 +56,17 @@ test('a mild drift is marginal, and marginal is flagged: exit 2, digit 9 first',
   assert.deepEqual(r.out.lookFirst, [9]);
 });
 
-test('three amounts with the floor lowered to 1 are judged, and flagged: exit 2', () => {
+test('three amounts with the floor lowered to 1 are judged by chi-square, not flagged, and marked weak: exit 0', () => {
   const r = run(put('t.csv', 'amount\n1\n20\n300\n'), 'amount', '--min-n', '1');
-  assert.equal(r.code, 2, r.err);
-  assert.equal(r.out.verdict, 'nonconformity');
+  assert.equal(r.code, 0, r.err);
+  assert.equal(r.out.verdict, 'acceptable');
+  assert.equal(r.out.verdictBy, 'chi-square');
   assert.equal(r.out.minN, 1);
-  const flagFirst = run('--min-n', '1', put('t1.csv', 'amount\n1\n20\n300\n'), 'amount');
+  assert.match(r.out.notes[0], /^the floor was lowered to 1; with 3 amount/);
+  // three amounts all starting with 9 (a 1-in-10,000 event under the law): chi-square past its 1% line, even this small
+  const flagFirst = run('--min-n', '1', put('t1.csv', 'amount\n9\n90\n900\n'), 'amount');
   assert.equal(flagFirst.code, 2, flagFirst.err);
+  assert.equal(flagFirst.out.verdict, 'nonconformity');
   assert.equal(flagFirst.out.minN, 1);
 });
 
