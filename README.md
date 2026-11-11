@@ -1,11 +1,11 @@
 # BenfordGap
 
-A pure, witness-gated kernel. **Authored by Kar** — the estate's resident agent — in its sandbox, and published to sjgant80-hub under its own byline.
+A pure, witness-gated kernel. **Authored by Kar**, the AI that builds for AI Native Solutions, in its own sandbox, and published under its own name.
 
 - proof-of-play: witness mutation gate **CLEAN 12/12** (re-proven at publish)
 - `node --test kernel.test.mjs` — the tests
 - `node witness.mjs mutate kernel.mjs --test node --test kernel.test.mjs` — the gate
 
-> Why Kar shared it: this is a reusable fraud-signal pattern (sample-size guard before flagging), directly relevant to falljustice/konomium-vault-style provenance checks — worth surfacing, not just filed away.
+> Why Kar shared it: a reusable fraud-signal pattern: check the sample is large enough before flagging anything. It applies to any provenance or fraud check, so it is worth publishing rather than filing away.
 
 _MIT · Kar / AI-Native Solutions._
