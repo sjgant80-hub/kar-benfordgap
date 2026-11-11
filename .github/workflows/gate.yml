@@ -1,15 +1,42 @@
 name: gate
 on: [push, pull_request, workflow_dispatch]
 jobs:
-  gate:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
-      - name: tests
+      - name: kernel tests
         run: node --test kernel.test.mjs
-      - name: witness must be CLEAN
+      - name: cost case tests (and the pinned sourced basis)
+        run: node --test checkcase.test.mjs
+      - name: receipt matches the files it names
         run: |
-          node witness.mjs mutate kernel.mjs --timeout 30000 --cap 600 --test node --test kernel.test.mjs | tee gate.out || true
-          node -e "const b=require('fs').readFileSync('gate.out','utf8');const j=JSON.parse(b.slice(b.indexOf('{'),b.lastIndexOf('}')+1));if(j.clean!==true){console.error('GATE NOT CLEAN');process.exit(1)}console.log('CLEAN '+j.killed+'/'+j.total)"
+          node -e "const c=require('crypto'),fs=require('fs');const w=JSON.parse(fs.readFileSync('receipts/witness.json'));let bad=0;for(const g of w.gates){const h=f=>c.createHash('sha256').update(fs.readFileSync(f)).digest('hex');const tf=g.tests.split(' ').pop();if(h(g.file)!==g.sha256||h(tf)!==g.testsSha256){console.error('receipt stale for '+g.file);bad=1}}process.exit(bad)"
+      - name: command line runs
+        run: printf 'amount\n1\n20\n300\n' > t.csv && node cli.mjs t.csv amount --min-n 1 > /dev/null
+  witness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: witness v0.6 mutation gate on the kernel (every mutant)
+        uses: sjgant80-hub/witness@v0.6
+        with:
+          files: kernel.mjs
+          test-command: node --test kernel.test.mjs
+          cap: 100000
+          node-version: 22
+          fuzz: kernel.mjs:audit kernel.mjs:parseAmount kernel.mjs:csvColumn kernel.mjs:leadingDigit
+  witness-checkcase:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: witness v0.6 mutation gate on the cost case kernel (every mutant)
+        uses: sjgant80-hub/witness@v0.6
+        with:
+          files: checkcase.mjs
+          test-command: node --test checkcase.test.mjs
+          cap: 100000
+          node-version: 22
+          fuzz: checkcase.mjs:checkCase checkcase.mjs:figures

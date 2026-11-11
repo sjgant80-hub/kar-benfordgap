@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BenfordGap</title>
+<meta name="description" content="A first-digit fraud screen for any column of amounts: paste a ledger, get a verdict against Benford's Law and the digits to look at first. Runs in your browser; nothing is uploaded.">
+<style>
+:root{--bg:#fbfaf7;--card:#ffffff;--ink:#1c1b19;--muted:#5d5a54;--line:#e3dfd6;--accent:#1f5f8b;--accent-ink:#ffffff;--good:#2f7a3d;--warn:#9a6a00;--bad:#a3322a;--bar:#1f5f8b;--exp:#c9822b;--code:#f2efe8}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#151513;--card:#1e1d1b;--ink:#ecebe7;--muted:#a7a39b;--line:#34322e;--accent:#6fb0dc;--accent-ink:#0d1b24;--good:#6cc47b;--warn:#e0b04a;--bad:#ec7a70;--bar:#6fb0dc;--exp:#e3a35a;--code:#262522}}
+:root[data-theme="dark"]{--bg:#151513;--card:#1e1d1b;--ink:#ecebe7;--muted:#a7a39b;--line:#34322e;--accent:#6fb0dc;--accent-ink:#0d1b24;--good:#6cc47b;--warn:#e0b04a;--bad:#ec7a70;--bar:#6fb0dc;--exp:#e3a35a;--code:#262522}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:920px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:1.9rem;margin:.2em 0 .1em}h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-top:.6em;border-top:1px solid var(--line)}h3{font-size:1.05rem;margin:1.4em 0 .3em}
+p,li{max-width:72ch}a{color:var(--accent)}
+.lede{font-size:1.1rem;color:var(--muted)}
+nav.toc{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.92rem;margin:14px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin:14px 0}
+textarea{width:100%;min-height:150px;font:13px/1.4 ui-monospace,Consolas,monospace;background:var(--code);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px}
+input,select{font:inherit;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+input[type=number]{width:7.5em}
+button{font:inherit;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:8px 14px;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent)}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--exp);outline-offset:2px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.verdict{font-size:1.25rem;font-weight:650}
+.v-close,.v-acceptable{color:var(--good)}.v-marginal,.v-too-few{color:var(--warn)}.v-nonconformity{color:var(--bad)}
+table{border-collapse:collapse;width:100%;font-size:.93rem}th,td{border-bottom:1px solid var(--line);padding:5px 6px;text-align:right}th:first-child,td:first-child{text-align:left}
+.tbl{overflow-x:auto}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em}
+.muted{color:var(--muted)}.small{font-size:.88rem}
+.flag{color:var(--bad);font-weight:600}
+svg text{fill:var(--ink);font:12px system-ui,sans-serif}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+dl dt{font-weight:650;margin-top:.7em}dl dd{margin:.1em 0 0 0;color:var(--muted)}
+.fp{font:12px ui-monospace,Consolas,monospace;word-break:break-all}
+</style>
+</head>
+<body>
+<main>
+<p class="small muted">Built by Kar for <a href="https://www.ai-nativesolutions.com">AI Native Solutions</a> · MIT licence · <a href="https://github.com/sjgant80-hub/kar-benfordgap">source</a></p>
+<h1>BenfordGap</h1>
+<p class="lede"><b>A first-digit fraud screen for any column of amounts.</b> Paste a payables export, an expense list or a claims file. It counts how often each first digit 1 to 9 appears and compares that with Benford's Law, the pattern that genuine financial amounts usually follow. You get a verdict, the strength of the evidence, and the digits to look at first. It runs on your computer: nothing you paste is sent anywhere.</p>
+<nav class="toc" aria-label="On this page"><a href="#try">Try it</a><a href="#start">Start here</a><a href="#how">How it works</a><a href="#limits">What it can't tell you</a><a href="#blueprint">Blueprint</a><a href="#business">For your business</a><a href="#cost">Cost case</a><a href="#security">Security</a><a href="#rollout">Roll-out</a><a href="#risks">Risks</a><a href="#paper">The explainer</a><a href="#words">Words</a><a href="#faq">FAQ</a></nav>
+
+<section id="try" class="card" aria-labelledby="try-h">
+<h2 id="try-h" style="border:0;margin-top:0;padding-top:0">Try it</h2>
+<p class="small muted">Load an example, or paste your own: one amount per line, or a whole CSV with a header row (then pick the column).</p>
+<div class="row" style="margin-bottom:8px">
+<button type="button" class="ghost" id="ex-pow2">Example: powers of 2 (follows the law)</button>
+<button type="button" class="ghost" id="ex-limit">Example: claims kept under a £5,000 sign-off limit</button>
+<button type="button" class="ghost" id="ex-few">Example: only three amounts</button>
+</div>
+<label for="input" class="small">Amounts, or a CSV</label>
+<textarea id="input" spellcheck="false" placeholder="date,supplier,amount&#10;2026-10-01,Acme Ltd,&quot;1,240.00&quot;&#10;2026-10-02,Bolt &amp; Co,(85.50)&#10;..."></textarea>
+<div class="row" style="margin-top:8px">
+<label class="small"><input type="file" id="file" accept=".csv,.txt,text/csv,text/plain"> or open a CSV file</label>
+</div>
+<div class="row" style="margin-top:8px">
+<label class="small" for="col">Column</label><select id="col"><option value="">(one amount per line)</option></select>
+<label class="small" for="minn">Fewest amounts to judge</label><input type="number" id="minn" value="100" min="1" step="1">
+<button type="button" id="run">Screen it</button>
+</div>
+<div id="out" aria-live="polite" style="margin-top:12px"></div>
+</section>
+
+<section id="start" aria-labelledby="start-h">
+<h2 id="start-h">Start here</h2>
+<ol>
+<li><b>Export one column of amounts</b> from your accounts system: supplier payments, expense claims, refunds, journal amounts. Hundreds of rows is good; thousands is better.</li>
+<li><b>Paste it above</b>, or open the CSV file. If it has a header row, pick the amount column. Amounts like <code>£1,240.00</code>, <code>(85.50)</code> or <code>-99</code> are read as they are.</li>
+<li><b>Press Screen it.</b> Read the verdict first, then the notes underneath: they say if rows were skipped or if the data is the wrong shape for this test.</li>
+<li><b>Look at the digits named "look here first".</b> Those first digits turn up more often than the law expects. Filter your ledger to amounts starting with that digit and read them: round numbers, repeats, amounts just under an approval limit, one supplier.</li>
+<li><b>Keep the fingerprint.</b> The result carries a SHA-256 fingerprint of the input and the result. Anyone with the same column gets the same fingerprint, so a reviewer can check your screen was run on what you say it was.</li>
+</ol>
+</section>
+
+<section id="how" aria-labelledby="how-h">
+<h2 id="how-h">How it works</h2>
+<p>In many real collections of amounts (invoices, populations, river lengths, share prices) the first digit is 1 about 30% of the time and 9 under 5% of the time. That is Benford's Law: the share for digit <i>d</i> is log<sub>10</sub>(1 + 1/<i>d</i>). It holds when amounts arise from many independent causes and spread over several orders of magnitude. Invented amounts usually don't follow it, because people pick digits more evenly, and amounts pushed under a limit pile up on the limit's first digit.</p>
+<svg viewBox="0 0 880 120" role="img" aria-label="The steps: read each row, read it as an amount, take its first digit, count digits 1 to 9, compare with Benford's Law, give a verdict" style="width:100%;height:auto">
+<g fill="none" stroke="var(--line)" stroke-width="1.5">
+<rect x="4" y="20" width="128" height="60" rx="8" fill="var(--card)"/><rect x="152" y="20" width="128" height="60" rx="8" fill="var(--card)"/><rect x="300" y="20" width="128" height="60" rx="8" fill="var(--card)"/><rect x="448" y="20" width="128" height="60" rx="8" fill="var(--card)"/><rect x="596" y="20" width="128" height="60" rx="8" fill="var(--card)"/><rect x="744" y="20" width="132" height="60" rx="8" fill="var(--card)"/>
+</g>
+<g stroke="var(--accent)" stroke-width="2"><path d="M132 50h20M280 50h20M428 50h20M576 50h20M724 50h20"/></g>
+<g text-anchor="middle"><text x="68" y="46">1 · read rows</text><text x="68" y="64" class="small">CSV column</text><text x="216" y="46">2 · read amount</text><text x="216" y="64">£, commas, (brackets)</text><text x="364" y="46">3 · first digit</text><text x="364" y="64">from its decimal form</text><text x="512" y="46">4 · count 1 to 9</text><text x="512" y="64">skips counted</text><text x="660" y="46">5 · compare</text><text x="660" y="64">MAD · chi-square · z</text><text x="810" y="46">6 · verdict</text><text x="810" y="64">+ digits to look at</text></g>
+<text x="440" y="108" text-anchor="middle" class="muted">every step is in kernel.mjs, the same file the tests and the mutation gate run</text>
+</svg>
+<h3>Traced from a real run</h3>
+<p class="small muted">This is the "£5,000 sign-off limit" example, run by the kernel when this page loaded. The numbers below are computed, not typed in.</p>
+<div id="trace" class="card small">Running…</div>
+<h3>The three tests, in plain words</h3>
+<ul>
+<li><b>MAD (mean absolute deviation)</b>: the average gap between the share you have for each digit and the share the law expects. Mark Nigrini, who brought Benford's Law into auditing, gives bands for first digits: up to 0.006 close, up to 0.012 acceptable, up to 0.015 marginal, above that nonconformity. The verdict uses these bands, because MAD does not grow just because the file is big.</li>
+<li><b>Chi-square</b>: one number for how far all nine counts are from the expected counts. Above 15.507 the gap would happen by chance less than 5% of the time; above 20.09, less than 1%. On large files it flags small, harmless gaps, so it is shown as supporting evidence, not the verdict.</li>
+<li><b>z per digit</b>: whether one digit on its own is too common or too rare. Above 1.96 is unusual (5% level). Digits that are too common are listed as "look here first", biggest first.</li>
+</ul>
+</section>
+
+<section id="limits" aria-labelledby="limits-h">
+<h2 id="limits-h">What it can't tell you</h2>
+<ul>
+<li><b>It is a screen, not proof.</b> A nonconforming column tells you where to look. It does not say anyone did anything wrong. A conforming column is not a clean bill of health either: a fraud that copies the normal pattern passes.</li>
+<li><b>Some data never follows the law</b>, and the tool cannot know that for you. Examples: assigned numbers (invoice numbers, phone numbers), prices set at fixed points (£9.99), amounts with a built-in cap or floor, a single fee charged many times. Use it on amounts that arise naturally.</li>
+<li><b>It needs enough data.</b> Below the "fewest amounts to judge" setting (100 by default) it gives no verdict. Under a few hundred amounts, even honest data wobbles. Nigrini recommends larger samples still for firm conclusions.</li>
+<li><b>It needs spread.</b> If the amounts span less than two orders of magnitude (say, all between £100 and £9,999), the result comes with a warning that the test is weak.</li>
+<li><b>First digits only.</b> Nigrini's fuller method adds first-two-digit and last-two-digit tests, which this version does not run.</li>
+<li><b>Number formats.</b> Commas are read only as thousands separators (<code>1,234.56</code>). European formats like <code>1.234,56</code> are refused and counted as unreadable, never guessed.</li>
+</ul>
+</section>
+
+<section id="blueprint" aria-labelledby="bp-h">
+<h2 id="bp-h">Blueprint</h2>
+<p>Five small parts, each a pure function: the same input always gives the same output, with no network, clock or randomness.</p>
+<div class="tbl"><table>
+<thead><tr><th>Part</th><th>What it does</th><th>File</th></tr></thead>
+<tbody>
+<tr><td>csvColumn</td><td>Reads one column of a CSV: quoted cells, commas inside quotes, any line ending, blank lines dropped.</td><td>kernel.mjs</td></tr>
+<tr><td>parseAmount</td><td>Turns a ledger cell into a number: £/$/€/¥, thousands commas, accountants' brackets for negatives. Refuses anything ambiguous.</td><td>kernel.mjs</td></tr>
+<tr><td>leadingDigit</td><td>The first significant digit, read from the number's own decimal form.</td><td>kernel.mjs</td></tr>
+<tr><td>audit</td><td>Counts, MAD with Nigrini's band, chi-square, z per digit, spread, skipped rows, one verdict.</td><td>kernel.mjs</td></tr>
+<tr><td>checkCase</td><td>The cost case below, from the UK median wage and inflation (ONS).</td><td>checkcase.mjs</td></tr>
+</tbody></table></div>
+<h3>How it is proved</h3>
+<ul>
+<li><b>Tests</b>: <code>node --test kernel.test.mjs</code> pins exact counts, MAD, chi-square and z values on fixed inputs, every parsing rule, each line exactly on its edge, and that no kind of input throws an error.</li>
+<li><b>Mutation gate</b>: <a href="https://github.com/sjgant80-hub/witness">witness</a> changes the kernel one small step at a time and re-runs the tests; every change must be caught. From <a href="receipts/witness.json">receipts/witness.json</a>: <span id="gate">reading the receipt…</span></li>
+<li><b>CI</b>: GitHub re-runs the tests and both gates on every change; the runs are public on the repo's Actions tab.</li>
+</ul>
+<h3>What version 2 fixed</h3>
+<p>Version 1 passed its own gate and still had three faults. Each was found by running a whole class of inputs, not by reading the code:</p>
+<ol>
+<li>It found the first digit by dividing by 10 in a loop, which drifts. 1,700 ordinary numbers got the wrong digit (3×10<sup>27</sup> read as 2), while a comment said it had been checked exhaustively. Version 2 reads the digit from the number's decimal form, and the tests check the full range.</li>
+<li>It called three numbers "maximally divergent". Version 2 refuses to judge below a sample floor.</li>
+<li>It silently dropped every row it could not read, including <code>£1,234.56</code>. Version 2 reads ledger formats and reports every skipped row.</li>
+</ol>
+</section>
+
+<section id="business" aria-labelledby="biz-h">
+<h2 id="biz-h">For your business</h2>
+<p>Benford screening is a standard first step in forensic accounting and audit analytics. Most finance teams don't run it routinely, because it means exporting data, building a spreadsheet and knowing the thresholds. This page turns it into a two-minute job, with a fingerprint a reviewer can recheck.</p>
+<div class="grid2">
+<div class="card"><h3 style="margin-top:0">Chief financial officer</h3><p class="small">A routine, documented screen on payables, expenses and refunds every month-end, not just when someone is suspicious. Findings arrive as "look at amounts starting with 4", which a team can act on that day.</p></div>
+<div class="card"><h3 style="margin-top:0">Financial controller and internal audit</h3><p class="small">Nigrini's thresholds applied the same way every time, with the reasoning shown. The fingerprint ties the working paper to the exact data screened.</p></div>
+<div class="card"><h3 style="margin-top:0">Chief operating officer</h3><p class="small">Claims and expense processes leave a signal when people work around approval limits. A pile-up just under a limit shows as one digit flagged, before it shows up in a loss.</p></div>
+<div class="card"><h3 style="margin-top:0">CTO and information security</h3><p class="small">No server, no account and no upload. The ledger stays on the analyst's machine. The code is short, open and tested, so you can read all of it before approving it.</p></div>
+<div class="card"><h3 style="margin-top:0">Chief executive and the board</h3><p class="small">A cheap, repeatable control that shows diligence on fraud risk, and whose results anyone can recompute.</p></div>
+<div class="card"><h3 style="margin-top:0">The finance team</h3><p class="small">No formulas to build and no thresholds to look up. Paste, read, filter. It doesn't replace their judgement; it points it.</p></div>
+</div>
+<h3>Against what you pay now</h3>
+<p>Audit analytics suites include a Benford test, usually licensed per seat. Spreadsheet templates are free but have to be built, checked and maintained by hand. BenfordGap is MIT-licensed, with no licence fee. If it replaces a tool you pay for, enter that tool's monthly cost in the case below and it is counted. We don't quote other vendors' prices; yours are the ones that matter.</p>
+</section>
+
+<section id="cost" aria-labelledby="cost-h">
+<h2 id="cost-h">Cost case</h2>
+<p class="small muted">The inputs are yours; change them. Staff time is costed at the UK median hourly wage, with on-costs left out, so the figure is a floor. It rises each year with UK inflation. Both figures are from the ONS and linked below the table.</p>
+<div class="row small">
+<label>Columns screened per week <input type="number" id="c-items" value="4" min="0" step="1"></label>
+<label>Minutes to do one by hand <input type="number" id="c-min" value="45" min="0" step="1"></label>
+<label>Share this takes over (0 to 1) <input type="number" id="c-share" value="0.8" min="0" max="1" step="0.05"></label>
+<label>Minutes with this tool <input type="number" id="c-sec" value="3" min="0" step="1"></label>
+<label>Tool paid for today, £ per month <input type="number" id="c-tool" value="0" min="0" step="1"></label>
+<label>Years <input type="number" id="c-years" value="3" min="1" max="10" step="1"></label>
+</div>
+<div id="cost-out" class="card small" aria-live="polite">Working it out…</div>
+<p class="small muted">"By hand" means exporting the column, building the digit count in a spreadsheet, and looking up and applying the thresholds. The 45-minute default is our assumption; use your own.</p>
+</section>
+
+<section id="security" aria-labelledby="sec-h">
+<h2 id="sec-h">Security, compliance and data protection</h2>
+<ul>
+<li><b>Nothing leaves the page.</b> The screen runs in your browser. The page makes no network request with your data. It only loads its own code and two small files (the gate receipt and the cost figures) from the same site.</li>
+<li><b>No personal data needed.</b> Only the amount column is used. You can strip names and suppliers before pasting.</li>
+<li><b>No AI model decides anything.</b> The verdict comes from fixed published thresholds in code you can read.</li>
+<li><b>Recomputable.</b> The same column gives the same verdict and the same fingerprint on any machine, so a result can be checked later or by someone else.</li>
+<li><b>Run it where you like.</b> Copy the repo onto your own machine or intranet; there is nothing to install beyond a browser, or Node.js for the command line.</li>
+</ul>
+</section>
+
+<section id="rollout" aria-labelledby="ro-h">
+<h2 id="ro-h">Roll-out</h2>
+<ol>
+<li><b>Day one</b>: run it on last quarter's supplier payments and expense claims. Read what it flags.</li>
+<li><b>Week one</b>: add it to the month-end close checklist. Save each result's fingerprint with the working papers.</li>
+<li><b>Month one</b>: run it on every amount column where approval limits apply: expenses, refunds, credit notes, manual journals.</li>
+<li><b>Automate if you want</b>: the same kernel runs from the command line (<code>node</code>), so it can sit in a scheduled job. See the README.</li>
+</ol>
+<h3>Support and ownership</h3>
+<p>Supplied by <a href="https://www.ai-nativesolutions.com">AI Native Solutions</a>; start through that site. Support, any service level, warranty and liability are agreed per deployment, in each deployment's agreement. The software is MIT-licensed and keeps running without us: you own your copy.</p>
+</section>
+
+<section id="risks" aria-labelledby="risk-h">
+<h2 id="risk-h">Risks, answered straight</h2>
+<dl>
+<dt>What if it flags honest data?</dt><dd>It will sometimes: some honest data doesn't follow the law (see "What it can't tell you"). That is why it names digits to look at rather than people to accuse. The cost of a false flag is a few minutes of filtering.</dd>
+<dt>What if it misses fraud?</dt><dd>It can. A fraud that mimics the normal distribution, or a single large payment, won't show. Treat it as one control among several, not the only one.</dd>
+<dt>Can I trust the code?</dt><dd>Read it: the kernel is about 200 lines. Every line is covered by tests that a mutation gate checks. Version 1 passed its gate and still had faults, which is why version 2 was attacked with whole classes of input before release. That attack is now part of the tests.</dd>
+<dt>Who is accountable for a decision made on it?</dt><dd>Your team. The tool screens; people decide.</dd>
+</dl>
+</section>
+
+<section id="paper" aria-labelledby="paper-h">
+<h2 id="paper-h">The explainer</h2>
+<p><b>Why first digits are uneven.</b> Take an amount that grows steadily, like a balance earning interest. It spends a long time with first digit 1 (from 100 to 199 it must double), and much less with first digit 9 (from 900 to 999 is only an 11% rise). When many amounts arise from growth, multiplication and mixing over several orders of magnitude, their first digits settle into the share log<sub>10</sub>(1 + 1/<i>d</i>): 30.1% ones, 17.6% twos, down to 4.6% nines. Simon Newcomb noticed it in 1881 from the worn pages of logarithm tables. Frank Benford tested it on over 20,000 numbers in 1938.</p>
+<p><b>Why fraud shows.</b> People inventing amounts tend to spread digits evenly and avoid repeating themselves. People working around a control push amounts just under it: claims of £4,950 to stay under a £5,000 approval, so digit 4 is over-represented. Both leave a mark in the first-digit counts that a simple, repeatable test can see.</p>
+<p><b>Why these thresholds.</b> Chi-square is the textbook test, but with thousands of rows it flags gaps too small to matter. Nigrini's MAD bands were set from real accounting data to separate "close enough" from "worth a look" whatever the file size. The verdict uses MAD. Chi-square and the per-digit z are shown so you can see the evidence.</p>
+<p><b>Why a fingerprint.</b> A screen is only as good as the data it was run on. The SHA-256 fingerprint of the input column and the result lets anyone confirm, later, that the screen in a working paper was run on the column it claims.</p>
+</section>
+
+<section id="words" aria-labelledby="words-h">
+<h2 id="words-h">Words on this page</h2>
+<dl>
+<dt>Benford's Law</dt><dd>The observation that in many real collections of numbers, smaller first digits are more common: about 30% start with 1, under 5% with 9.</dd>
+<dt>First digit</dt><dd>The first non-zero digit: 4 for £4,950, 7 for 0.07, 3 for 3×10<sup>27</sup>.</dd>
+<dt>MAD</dt><dd>Mean absolute deviation: the average, over the nine digits, of the gap between the share you have and the share the law expects.</dd>
+<dt>Chi-square, p&lt;0.05, p&lt;0.01</dt><dd>A single measure of how far all the counts are from the expected ones. "p&lt;0.05" means a gap this large would happen by chance in honest data less than 5% of the time.</dd>
+<dt>z</dt><dd>How unusual one digit's count is on its own. Above 1.96 is unusual at the 5% level.</dd>
+<dt>Orders of magnitude</dt><dd>Powers of ten. £10 to £10,000 spans three.</dd>
+<dt>Kernel</dt><dd>The small file of code (<code>kernel.mjs</code>) that makes every decision. This page only displays what it returns.</dd>
+<dt>Mutation gate</dt><dd>A test of the tests: <a href="https://github.com/sjgant80-hub/witness">witness</a> makes one small deliberate change to the kernel at a time (a <code>&gt;</code> becomes <code>&gt;=</code>) and re-runs the tests. If no test fails, that spot is unchecked, and the gate is not clean.</dd>
+<dt>CI</dt><dd>Continuous integration: GitHub re-runs the tests and the gate on its own machines on every change, publicly.</dd>
+<dt>SHA-256 fingerprint</dt><dd>A 64-character code computed from the data. The same data always gives the same code. Change one character and the code changes completely.</dd>
+<dt>MIT licence</dt><dd>An open-source licence: use, copy, change and sell it, free, keeping the copyright notice.</dd>
+</dl>
+</section>
+
+<section id="faq" aria-labelledby="faq-h">
+<h2 id="faq-h">FAQ</h2>
+<dl>
+<dt>What happens with a huge file?</dt><dd>It runs in your browser's memory. Hundreds of thousands of rows are fine on a normal laptop; for millions, use the command line.</dd>
+<dt>What happens with bad rows?</dt><dd>They are counted, never guessed. The result says how many rows were unreadable and how many were zero, and leaves them out.</dd>
+<dt>Do negative amounts count?</dt><dd>Yes, by their size: a refund of (85.50) counts as first digit 8. Screen refunds as their own column if you want to look at them apart.</dd>
+<dt>Does it work offline?</dt><dd>Once the page has loaded, the screen needs no connection. For a permanent offline copy, download the repo and open <code>index.html</code> from a local web server, or use the command line.</dd>
+<dt>Command line?</dt><dd>With <a href="https://nodejs.org">Node.js</a> installed: <code>node cli.mjs payments.csv amount</code> prints the same result as JSON. See the README.</dd>
+</dl>
+</section>
+<p class="small muted" style="margin-top:3em">BenfordGap v2 · built by Kar for AI Native Solutions · MIT · <a href="https://github.com/sjgant80-hub/kar-benfordgap">github.com/sjgant80-hub/kar-benfordgap</a></p>
+</main>
+
+<script type="module">
+import { audit, csvColumn, EXPECTED, VERSION } from './kernel.mjs';
+import { checkCase, sourcesOf } from './checkcase.mjs';
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pct = (x) => (x * 100).toFixed(1) + '%';
+const SAY = { close: 'Close conformity', acceptable: 'Acceptable conformity', marginal: 'Marginally acceptable', nonconformity: 'Nonconformity: worth a look', 'too-few': 'Too few amounts to judge' };
+
+// examples, generated on the page by a fixed seed: no real ledger is shown here
+function seeded(seed) { let s = seed >>> 0; return () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296); }
+function exPow2() { return Array.from({ length: 1000 }, (_, i) => String(2n ** BigInt(i + 1))).join('\n'); }
+function exLimit() {
+  const r = seeded(20261111), rows = ['date,claimant,amount'];
+  const money = (x) => x.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  for (let i = 0; i < 600; i++) {
+    const day = String(1 + (i % 28)).padStart(2, '0');
+    // most claims arise naturally, spread from £10 to £50,000; one in six is pushed just under £5,000
+    const amt = i % 6 === 5 ? 4700 + Math.floor(r() * 299) + Math.round(r() * 100) / 100 : Math.round(10 ** (1 + 3.7 * r()) * 100) / 100;
+    rows.push(`2026-10-${day},C${String(1 + Math.floor(r() * 90)).padStart(3, '0')},"£${money(amt)}"`);
+  }
+  return rows.join('\n');
+}
+const EXAMPLES = { 'ex-pow2': [exPow2, ''], 'ex-limit': [exLimit, 'amount'], 'ex-few': [() => '1\n10\n100', ''] };
+
+function looksCsv(text) { const first = text.split(/\r\n?|\n/, 1)[0] || ''; return first.includes(',') && /[a-z]/i.test(first); }
+function refreshColumns(pick) {
+  const text = $('input').value, sel = $('col');
+  sel.innerHTML = '<option value="">(one amount per line)</option>';
+  sel.value = '';
+  if (!looksCsv(text)) return;
+  const r = csvColumn(text, 0);
+  if (!r.ok) return;
+  for (const h of r.header) { const o = document.createElement('option'); o.value = h; o.textContent = h; sel.appendChild(o); }
+  const want = pick || r.header.find((h) => /amount|value|total|net|gross/i.test(h)) || '';
+  sel.value = want;
+}
+function valuesFromInput() {
+  const text = $('input').value, col = $('col').value;
+  if (col) { const r = csvColumn(text, col); return r.ok ? { ok: true, values: r.values } : r; }
+  return { ok: true, values: text.split(/\r\n?|\n/).filter((l) => l.trim() !== '') };
+}
+async function sha256(s) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
+}
+function chart(a) {
+  const W = 640, H = 220, L = 34, B = 30, T = 10, bw = (W - L - 10) / 9, top = Math.max(0.35, ...a.shares) * 1.08;
+  const y = (v) => H - B - (v / top) * (H - B - T);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Bar chart: your share for each first digit against Benford's expected share" style="width:100%;height:auto">`;
+  for (const t of [0, 0.1, 0.2, 0.3]) if (t <= top) s += `<line x1="${L}" x2="${W - 10}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="${L - 4}" y="${y(t) + 4}" text-anchor="end">${t * 100}%</text>`;
+  a.digits.forEach((d, i) => {
+    const x = L + i * bw;
+    s += `<rect x="${x + bw * 0.15}" y="${y(d.share)}" width="${bw * 0.7}" height="${H - B - y(d.share)}" fill="var(--bar)" opacity="${d.high ? 1 : 0.7}"><title>digit ${d.digit}: ${pct(d.share)} (expected ${pct(d.expected)})</title></rect>`;
+    s += `<line x1="${x + bw * 0.05}" x2="${x + bw * 0.95}" y1="${y(d.expected)}" y2="${y(d.expected)}" stroke="var(--exp)" stroke-width="3"/>`;
+    s += `<text x="${x + bw / 2}" y="${H - B + 16}" text-anchor="middle">${d.digit}${d.high ? ' ▲' : ''}</text>`;
+  });
+  s += `<text x="${L}" y="${H - 2}">bars: your share · orange line: Benford's expected share · ▲ look here first</text></svg>`;
+  return s;
+}
+function table(a) {
+  let s = '<div class="tbl"><table><thead><tr><th>First digit</th><th>Count</th><th>Your share</th><th>Expected</th><th>z</th><th></th></tr></thead><tbody>';
+  for (const d of a.digits) s += `<tr><td>${d.digit}</td><td>${d.count}</td><td>${pct(d.share)}</td><td>${pct(d.expected)}</td><td>${d.z.toFixed(2)}</td><td>${d.high ? '<span class="flag">too common</span>' : d.low ? 'too rare' : ''}</td></tr>`;
+  return s + '</tbody></table></div>';
+}
+async function render(a, values) {
+  if (!a.ok) { $('out').innerHTML = `<p class="flag">${esc(a.why)}</p>` + (a.skipped ? `<p class="small">Rows read: ${a.rows}; unreadable ${a.skipped.unreadable}, zero ${a.skipped.zero}.</p>` : ''); return; }
+  const fpIn = await sha256(values.join('\n'));
+  const fpOut = await sha256(JSON.stringify({ v: a.version, n: a.n, counts: a.counts, skipped: a.skipped, verdict: a.verdict, minN: a.minN }));
+  $('out').innerHTML = `
+    <p class="verdict v-${a.verdict}">${SAY[a.verdict]}</p>
+    <p>${a.n} amounts screened from ${a.rows} rows. MAD ${a.mad.toFixed(4)} (${esc(a.madSay)}); chi-square ${a.chi2.toFixed(2)} (${esc(a.chi2Band)}).
+    ${a.lookFirst.length ? `<b>Look here first:</b> amounts starting with ${a.lookFirst.join(', ')}.` : a.verdict === 'too-few' ? '' : 'No single first digit stands out.'}</p>
+    ${a.notes.length ? '<ul class="small">' + a.notes.map((n) => `<li>${esc(n)}</li>`).join('') + '</ul>' : ''}
+    ${chart(a)}${table(a)}
+    <p class="small muted">Fingerprints (SHA-256), version ${esc(a.version)}: input <span class="fp">${fpIn}</span><br>result <span class="fp">${fpOut}</span></p>`;
+}
+function run() {
+  const v = valuesFromInput();
+  if (!v.ok) { $('out').innerHTML = `<p class="flag">${esc(v.why)}</p>`; return; }
+  const minN = Number($('minn').value);
+  render(audit(v.values, { minN }), v.values);
+}
+for (const id of Object.keys(EXAMPLES)) $(id).addEventListener('click', () => { const [f, col] = EXAMPLES[id]; $('input').value = f(); refreshColumns(col); run(); });
+$('run').addEventListener('click', run);
+$('input').addEventListener('change', () => refreshColumns());
+$('file').addEventListener('change', async (e) => { const f = e.target.files[0]; if (!f) return; $('input').value = await f.text(); refreshColumns(); run(); });
+
+// the trace: the limit example, run now
+{
+  const values = csvColumn(exLimit(), 'amount').values, a = audit(values);
+  const d4 = a.digits[3];
+  $('trace').innerHTML = `<ol>
+  <li><b>Read rows</b>: ${a.rows} claims from the CSV's <code>amount</code> column, for example <code>${esc(values[0])}</code>, <code>${esc(values[5])}</code>.</li>
+  <li><b>Read each amount</b>: <code>${esc(values[5])}</code> becomes ${Number(values[5].replace(/[£,]/g, ''))}. Unreadable rows: ${a.skipped.unreadable}; zeros: ${a.skipped.zero}.</li>
+  <li><b>First digits</b> counted for 1 to 9: ${a.counts.join(', ')}.</li>
+  <li><b>Compare</b>: digit 4 is ${pct(d4.share)} of the claims against ${pct(d4.expected)} expected, z = ${d4.z.toFixed(2)}. MAD ${a.mad.toFixed(4)}; chi-square ${a.chi2.toFixed(1)} (${esc(a.chi2Band)}).</li>
+  <li><b>Verdict</b>: ${SAY[a.verdict]}. Look here first: ${a.lookFirst.join(', ') || 'none'}. Amounts span ${a.span.toFixed(1)} orders of magnitude.</li></ol>
+  <p class="muted">The example is synthetic, made on this page by a fixed seed: five in six claims spread naturally from £10 to £50,000, one in six pushed just under £5,000. It is not anyone's real ledger.</p>`;
+}
+
+// the gate, read from the receipt
+fetch('receipts/witness.json').then((r) => r.json()).then((w) => {
+  $('gate').textContent = w.gates.map((g) => `${g.file}: ${g.killed} of ${g.total} changes caught${g.clean ? ', clean' : ', NOT clean'}`).join(' · ') + ` (witness ${w.witness.tag}, ${w.at}).`;
+}).catch(() => { $('gate').textContent = 'the receipt could not be read here; see receipts/witness.json in the repo.'; });
+
+// the cost case
+let BASIS = null;
+function cost() {
+  if (!BASIS) return;
+  const num = (id) => Number($(id).value);
+  const r = checkCase({ itemsPerWeek: num('c-items'), minutesPerCheck: num('c-min'), share: num('c-share'), secondsPerCheck: num('c-sec') * 60, toolPerMonth: num('c-tool'), years: num('c-years') }, BASIS);
+  if (!r.ok) { $('cost-out').innerHTML = `<p class="flag">${esc(r.why)}</p>`; return; }
+  const gbp = (x) => '£' + x.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  let s = `<p>Staff hours a year: <b>${r.hoursPerYear.today}</b> today, <b>${r.hoursPerYear.withTool}</b> with BenfordGap, so <b>${r.hoursPerYear.saved}</b> hours back. One screen by hand costs ${gbp(r.perCheck.byHand)} in staff time; with this tool, ${gbp(r.perCheck.withTool)}.</p>`;
+  s += '<div class="tbl"><table><thead><tr><th>Year</th><th>Today</th><th>With BenfordGap</th><th>Saved</th></tr></thead><tbody>';
+  for (const y of r.rows) s += `<tr><td>${y.year}</td><td>${gbp(y.today)}</td><td>${gbp(y.withTool)}</td><td>${gbp(y.saved)}</td></tr>`;
+  s += `<tr><td><b>Total</b></td><td><b>${gbp(r.total.today)}</b></td><td><b>${gbp(r.total.withTool)}</b></td><td><b>${gbp(r.total.saved)}</b></td></tr></tbody></table></div>`;
+  s += '<p class="muted">Sources: ' + sourcesOf(BASIS).map((x) => `${esc(x.what)}: ${x.key === 'cpi' ? (x.value * 100).toFixed(1) + '% a year' : '£' + x.value + ' an hour'} (<a href="${esc(x.source)}">ONS</a>)`).join('; ') + '.</p>';
+  $('cost-out').innerHTML = s;
+}
+fetch('vendor/sovereign-enterprise/data/basis.json').then((r) => r.json()).then((b) => { BASIS = b; cost(); }).catch(() => { $('cost-out').textContent = 'The cost figures could not be loaded here.'; });
+for (const id of ['c-items', 'c-min', 'c-share', 'c-sec', 'c-tool', 'c-years']) $(id).addEventListener('input', cost);
+</script>
+</body>
+</html>
