@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob:; worker-src 'self' blob:; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BenfordGap</title>
 <meta name="description" content="A first-digit fraud screen for any column of amounts: paste a ledger, get a verdict against Benford's Law and the digits to look at first. Runs in your browser; nothing is uploaded.">
@@ -184,12 +185,21 @@ dl dt{font-weight:650;margin-top:.7em}dl dd{margin:.1em 0 0 0;color:var(--muted)
 <section id="security" aria-labelledby="sec-h">
 <h2 id="sec-h">Security, compliance and data protection</h2>
 <ul>
-<li><b>Nothing leaves the page.</b> The screen runs in your browser. The page makes no network request with your data. It only loads its own code and two small files (the gate receipt and the cost figures) from the same site.</li>
+<li><b>Nothing leaves the page, and the browser enforces it.</b> The screen runs in your browser. The page carries a Content-Security-Policy that lets it connect only to its own site, so even a changed copy of the code could not send your data anywhere else. It loads only its own code and two small files (the gate receipt and the cost figures). Check it yourself: open your browser's developer tools, Network tab, paste a column and press Screen it. No request is made.</li>
 <li><b>No personal data needed.</b> Only the amount column is used. You can strip names and suppliers before pasting.</li>
 <li><b>No AI model decides anything.</b> The verdict comes from fixed published thresholds in code you can read.</li>
 <li><b>Recomputable.</b> The same column gives the same verdict and the same fingerprint on any machine, so a result can be checked later or by someone else.</li>
 <li><b>Run it where you like.</b> Copy the repo onto your own machine or intranet; there is nothing to install beyond a browser, or Node.js for the command line.</li>
 </ul>
+<h3>Questions a security review will ask</h3>
+<dl>
+<dt>Where is the data processed, and where does it live?</dt><dd>Only in the browser tab on the analyst's own device. No server receives it: the site that serves the page (GitHub Pages) sends the files and never sees what is pasted. Data location is wherever that device is.</dd>
+<dt>How long is it kept?</dt><dd>Not at all. The page uses no cookies, local storage or database, and writes nothing to disk. Closing or reloading the tab clears it. Anything you keep, such as a copied result or a saved CSV, follows your own retention policy.</dd>
+<dt>Is it encrypted?</dt><dd>The page's own files arrive over HTTPS. Your data is never transmitted or stored, so there is no transfer or storage to encrypt.</dd>
+<dt>Who is the processor? What about subject access requests and breaches?</dt><dd>No data reaches AI Native Solutions, GitHub or anyone else, so for the screen itself there is no supplier holding data: nothing to list as a processor, nothing to search for a subject access request, nothing for us to breach. You stay the controller of your own exports.</dd>
+<dt>Third parties and supply chain?</dt><dd>None at run time: no analytics, no trackers, no fonts or scripts from other sites, no AI model, no package dependencies. The code is three short files you can read (kernel.mjs, checkcase.mjs and the page), and every change is tested and mutation-gated in public on GitHub when it is pushed.</dd>
+<dt>Can we run it fully inside our network?</dt><dd>Yes. Copy the repository to an internal web server, or run the command line on a locked-down machine. It needs no internet connection to screen.</dd>
+</dl>
 </section>
 
 <section id="rollout" aria-labelledby="ro-h">
