@@ -4,6 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -87,6 +88,24 @@ test('one amount per line (blank lines and CRLF ignored), and a column by number
   const byIndex = run(put('good2.csv', 'id,amount' + NL + benford.map((a, i) => `${i},${a}`).join(NL) + NL), '1');
   assert.equal(byIndex.code, 0, byIndex.err);
   assert.equal(byIndex.out.n, 1000);
+});
+
+test('fingerprints follow the published recipe, the same one the page uses', () => {
+  const sha = (s) => createHash('sha256').update(s, 'utf8').digest('hex');
+  const r = run(put('fp.csv', 'amount\n1\n20\n300\n'), 'amount');
+  // input: the screened cells as read, joined with a newline
+  assert.equal(r.out.fingerprint.input, sha('1\n20\n300'));
+  assert.equal(r.out.fingerprint.input, 'f2e813f1e70550d1312cd75a37c3e0f1d96bef10f5bec79d1b961f7c7e33f998');
+  // result: JSON of v, n, counts, skipped, verdict, minN in that order
+  const a = r.out;
+  assert.equal(a.fingerprint.result, sha(JSON.stringify({ v: a.version, n: a.n, counts: a.counts, skipped: a.skipped, verdict: a.verdict, minN: a.minN })));
+  assert.equal(a.fingerprint.result, '7da09395afeb3ea07796f913116b3badd11ffdf5a11bf736cc9094723a5bfb3a');
+  // the same column in a one-per-line file gives the same input fingerprint
+  assert.equal(run(put('fp.txt', '1\n\n20\r\n300\n')).out.fingerprint.input, a.fingerprint.input);
+  // a different floor is a different result
+  assert.notEqual(run(put('fp2.csv', 'amount\n1\n20\n300\n'), 'amount', '--min-n', '1').out.fingerprint.result, a.fingerprint.result);
+  // no result, no fingerprint
+  assert.equal(run(put('fp3.csv', 'amount\nn/a\n'), 'amount').out.fingerprint, undefined);
 });
 
 test('bad input: exit 1 with a reason', () => {

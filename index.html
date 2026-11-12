@@ -75,7 +75,7 @@ dl dt{font-weight:650;margin-top:.7em}dl dd{margin:.1em 0 0 0;color:var(--muted)
 <li><b>Paste it above</b>, or open the CSV file. If it has a header row, pick the amount column. Amounts like <code>£1,240.00</code>, <code>(85.50)</code> or <code>-99</code> are read as they are.</li>
 <li><b>Press Screen it.</b> Read the verdict first, then the notes underneath: they say if rows were skipped or if the data is the wrong shape for this test.</li>
 <li><b>Look at the digits named "look here first".</b> Those first digits turn up more often than the law expects. Filter your ledger to amounts starting with that digit and read them: round numbers, repeats, amounts just under an approval limit, one supplier.</li>
-<li><b>Keep the fingerprint.</b> The result carries a SHA-256 fingerprint of the input and the result. Anyone with the same column gets the same fingerprint, so a reviewer can check your screen was run on what you say it was.</li>
+<li><b>Keep the fingerprint.</b> The result carries a SHA-256 fingerprint of the input and the result. Anyone with the same column gets the same fingerprint, so a reviewer can check your screen was run on what you say it was. The exact recipe is in the FAQ, and the command line prints the same two fingerprints, so the check does not depend on this page.</li>
 </ol>
 </section>
 
@@ -113,7 +113,8 @@ dl dt{font-weight:650;margin-top:.7em}dl dd{margin:.1em 0 0 0;color:var(--muted)
 <li><b>It needs enough data.</b> Below the "fewest amounts to judge" setting (100 by default) it gives no verdict. From 100 to 999 amounts the verdict comes from chi-square, which can only see large gaps at that size: a small pile-up can pass. From 1,000 up it uses Nigrini's MAD bands. If you lower the setting under 100, the result says the verdict is weak.</li>
 <li><b>It needs spread.</b> If the amounts span less than two orders of magnitude (say, all between £100 and £9,999), the verdict is still given, with a note underneath that it is weak. Benford's Law describes amounts that range over several powers of ten; a narrow band of similar amounts can't show the pattern.</li>
 <li><b>First digits only.</b> Nigrini's fuller method adds first-two-digit and last-two-digit tests, which this version does not run.</li>
-<li><b>Number formats.</b> Commas are read only as thousands separators (<code>1,234.56</code>). European formats like <code>1.234,56</code> are refused and counted as unreadable, never guessed.</li>
+<li><b>No duplicate check.</b> Every row counts, so the same amount paid twice counts twice. It does not look for duplicate payments: that is a separate test (Nigrini's number-duplication test), which this version does not run.</li>
+<li><b>Number formats.</b> Read: <code>£ $ € ¥</code> in front, <code>GBP USD EUR</code> after, a minus sign or accountants' brackets for negatives, commas only as thousands separators (<code>1,234.56</code>). Refused and counted as unreadable, never guessed: European formats like <code>1.234,56</code>, spaces inside a number (<code>1 234.56</code>), a currency code in front (<code>EUR 5</code>), and any text mixed in.</li>
 </ul>
 </section>
 
@@ -256,7 +257,9 @@ dl dt{font-weight:650;margin-top:.7em}dl dd{margin:.1em 0 0 0;color:var(--muted)
 <dt>What happens with bad rows?</dt><dd>They are counted, never guessed. The result says how many rows were unreadable and how many were zero, and leaves them out.</dd>
 <dt>Do negative amounts count?</dt><dd>Yes, by their size: a refund of (85.50) counts as first digit 8. Screen refunds as their own column if you want to look at them apart.</dd>
 <dt>Does it work offline?</dt><dd>Once the page has loaded, the screen needs no connection. For a permanent offline copy, download the repo and open <code>index.html</code> from a local web server, or use the command line.</dd>
-<dt>Command line?</dt><dd>With <a href="https://nodejs.org">Node.js</a> installed: <code>node cli.mjs payments.csv amount</code> prints the same result as JSON. See the README.</dd>
+<dt>Command line?</dt><dd>With <a href="https://nodejs.org">Node.js</a> installed: <code>node cli.mjs payments.csv amount</code> prints the same result as JSON, with the same two fingerprints. See the README.</dd>
+<dt>Are amounts rounded?</dt><dd>No. Only the first digit that is not zero is used, read from the amount exactly as written: £1,234.56 counts as 1, £0.99 as 9, 0.07 as 7. Pence never change the first digit of an amount of a pound or more.</dd>
+<dt>How exactly is the fingerprint made?</dt><dd>Two SHA-256 hashes of UTF-8 text. <b>Input</b>: the cells that were screened, exactly as read from the column (blank lines dropped), joined with a single newline. <b>Result</b>: the JSON text <code>{"v","n","counts","skipped","verdict","minN"}</code>, with those keys in that order and no spaces: the kernel version, the number of amounts used, the nine digit counts, the skipped rows, the verdict and the floor. Any SHA-256 tool gives the same codes, and <code>node cli.mjs</code> prints them too. The command line's tests check the recipe.</dd>
 </dl>
 </section>
 <p class="small muted" style="margin-top:3em">BenfordGap <span id="ver">v2.1</span> · built by Kar for AI Native Solutions · MIT · <a href="https://github.com/sjgant80-hub/kar-benfordgap">github.com/sjgant80-hub/kar-benfordgap</a></p>

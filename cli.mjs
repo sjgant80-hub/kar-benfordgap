@@ -3,8 +3,14 @@
 //   node cli.mjs <file.csv> <column name or 0-based number> [--min-n N]
 //   node cli.mjs <file.txt>                (one amount per line)
 // Prints the kernel's result as JSON. Exit code: 0 conforms or too few, 2 marginal or nonconformity, 1 bad input.
+// A judged result also carries the same two SHA-256 fingerprints the page shows, made the same way:
+//   input  = SHA-256 of the screened cells, as read, joined with a newline (UTF-8)
+//   result = SHA-256 of JSON {"v","n","counts","skipped","verdict","minN"}, in that order
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { audit, csvColumn } from './kernel.mjs';
+
+const sha256 = (s) => createHash('sha256').update(s, 'utf8').digest('hex');
 
 const args = process.argv.slice(2);
 const mi = args.indexOf('--min-n');
@@ -22,5 +28,11 @@ else {
   values = r.values;
 }
 const a = audit(values, minN === undefined ? {} : { minN });
+if (a.ok) {
+  a.fingerprint = {
+    input: sha256(values.join('\n')),
+    result: sha256(JSON.stringify({ v: a.version, n: a.n, counts: a.counts, skipped: a.skipped, verdict: a.verdict, minN: a.minN })),
+  };
+}
 console.log(JSON.stringify(a, null, 2));
 process.exit(!a.ok ? 1 : a.verdict === 'marginal' || a.verdict === 'nonconformity' ? 2 : 0);

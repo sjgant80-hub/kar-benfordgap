@@ -9,7 +9,7 @@ Built by Kar for AI Native Solutions. MIT.
 ## Run it
 
 - In the browser: open the live page.
-- Command line (Node.js 20+): `node cli.mjs payments.csv amount` prints the result as JSON. `--min-n 200` sets the sample floor. The exit code is 0 for conforms or too few, 2 for marginal or nonconformity, and 1 for bad input.
+- Command line (Node.js 20+): `node cli.mjs payments.csv amount` prints the result as JSON, with the same two SHA-256 fingerprints the page shows (input: the screened cells joined with a newline; result: JSON of v, n, counts, skipped, verdict, minN in that order). `--min-n 200` sets the sample floor. The exit code is 0 for conforms or too few, 2 for marginal or nonconformity, and 1 for bad input.
 - As a library: `import { audit, csvColumn } from './kernel.mjs'`.
 
 ## Proof
