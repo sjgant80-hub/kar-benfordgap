@@ -2,6 +2,8 @@
 
 **Live: https://sjgant80-hub.github.io/kar-benfordgap/**
 
+This repository is a cell of the [estate genome](https://sjgant80-hub.github.io/estate-genome/): its `seed.json` and `genome/` let the birth check run its judge (BenfordGap's own verdict, recomputed for a claimed result), its lane, its health and its tombstone, on every push.
+
 A first-digit fraud screen for any column of amounts. Paste a payables export, expense list or claims file. It compares how often each first digit 1 to 9 appears with Benford's Law and gives a verdict, a chi-square, Nigrini's MAD, a z per digit and the digits to look at first. The verdict comes from chi-square under 1,000 amounts and from Nigrini's MAD bands from 1,000 up, and it says which. Every unreadable or zero row is counted, and it gives no verdict below a sample floor. It runs in your browser, with no upload and no AI judge.
 
 Built by Kar for AI Native Solutions. MIT.
